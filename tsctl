@@ -2,14 +2,14 @@
 set -e
 
 ALL_PROJECTS=( \
-	"http-api" \
-	"tripsit-discord-bot" \
+    "http-api" \
+    "discord-bot-test" \
 )
 
 DOCKER_COMPOSE_PROJECT_IDS=( \
-	"http-api" \
+    "http-api" \
+    "discord-bot-test" \
 )
-
 ROOT_PATH="$(dirname "${0}")"
 CONFIG_PATH="${ROOT_PATH}/config"
 SCRIPTS_PATH="${ROOT_PATH}/scripts"
@@ -35,7 +35,7 @@ if [[ "${1}" =~ /tsctl$/ ]]; then
 fi
 
 case "${command_arg}" in
-	"bootstrap" | "up" | "test" | "clean "| "chkenv")
+	"bootstrap" | "up" | "test" | "clean"| "chkenv")
 		source "${SCRIPTS_PATH}/${command_arg}.sh"
 		;;
 	"--help" | "-h")
