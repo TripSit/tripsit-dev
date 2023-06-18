@@ -8,6 +8,15 @@
         "npm": "9.6.4"
     },
     "scripts": {
+        "docker-rebuild": "docker compose --profile all up -d --force-recreate --build --remove-orphans",
+        "## Admin ##": "",
+        "logs-traefik": "docker container logs traefik -f -n 100",
+        "logs-portainer": "docker container logs portainer -f -n 100",
+        "## Dev ##": "",
+        "logs-tripbot": "docker container logs tripbot -f -n 100",
+        "logs-postgres": "docker container logs postgres -f -n 100",
+        "logs-website": "docker container logs postgres -f -n 100",
+        "### OLD STUFF ###": "",
         "chkenv": "./tsctl chkenv",
         "bootstrap": "./tsctl bootstrap",
         "up": "./tsctl up",
@@ -17,7 +26,9 @@
         "test": "./tsctl test",
         "clean": "./tsctl clean",
         "down": "./tsctl down",
-        "refreshDb": "npm --prefix 'repos/http-api' run reset-db"
+        "refreshDb": "npm --prefix 'repos/http-api' run reset-db",
+        "### DEV ###": "",
+        "docker": "npm --prefix 'repos/http-api' run reset-db"
     },
     "authors": [
         "SevenCats <sevencats@tripsit.me>",

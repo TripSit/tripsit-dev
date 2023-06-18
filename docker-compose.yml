@@ -1,0 +1,250 @@
+version: '3.9'
+
+########################### EXTENSION FIELDS
+# Common environment values
+x-environment: &default-tz-puid-pgid
+  TZ: $TZ
+  PUID: $PUID
+  PGID: $PGID
+ 
+# Keys common to some of the core services that we always to automatically restart on failure
+x-common-keys-core: &common-keys-core
+  security_opt:
+    - no-new-privileges:true
+  restart: always
+
+# Keys common to some of the dependent services/apps
+x-common-keys-apps: &common-keys-apps
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
+########################### SERVICES
+services:
+  traefik:
+    <<: *common-keys-core
+    image: traefik:latest
+    container_name: traefik
+    profiles: ["core", "all"]
+    # depends_on: 
+    #   - docker-socket-proxy
+    command:
+      # Global
+      - --global.checkNewVersion=true
+      - --global.sendAnonymousUsage=true
+      # Log info
+      - --log=true
+      # - --log.filePath=/var/log/traefik/traefik.log
+      - --log.level=DEBUG # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+      # Access logs
+      - --accesslog=true
+      # - --accesslog.filepath=/var/log/traefik/access.log
+      - --accessLog.bufferingSize=100 # Configuring a buffer of 100 lines
+      - --accessLog.filters.statusCodes=204-299,400-499,500-599
+      - --accesslog.fields.headers.names.Content-Type=keep
+      - --accesslog.fields.headers.names.Referer=keep
+      - --accesslog.fields.headers.names.User-Agent=keep
+      # Enable the Trafik dashboard
+      - --api=true
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --api.debug=true
+      # Tell Traefik to discover containers using the Docker API
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      # - --providers.docker.endpoint=unix://var/run/docker.sock # Use Docker Socket Proxy instead for improved security
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.network=traefik-net
+      - --providers.docker.swarmMode=false
+      - --providers.file.directory=/data/rules # Load dynamic configuration from one or more .toml or .yml files in a directory
+      - --providers.file.watch=true # Only works on top level files in the rules folder
+      # Set up an insecure listener that redirects all traffic to TLS
+      - --entrypoints.web.address=:80
+      # - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      # - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      # # Set up the TLS configuration for our https listener
+      # - --entrypoints.websecure.address=:443
+      # - --entrypoints.websecure.http.tls=true
+      # - --entrypoints.websecure.http.tls.certResolver=letsencrypt
+      # - --entrypoints.websecure.http.tls.domains[0].main=${DNS_DOMAIN}
+      # - --entrypoints.websecure.http.tls.domains[0].sans=*.${DNS_DOMAIN}
+      # - --entrypoints.websecure.http.tls.domains[1].main=${OTHER_DOMAIN}
+      # - --entrypoints.websecure.http.tls.domains[1].sans=*.${OTHER_DOMAIN}
+      # - --entrypoints.websecure.http.tls.options=tls-opts@file
+      # - --entrypoints.websecure.forwardedHeaders.trustedIPs=$CLOUDFLARE_IPS,$LOCAL_IPS
+      # # Set up LetsEncrypt
+      # # - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory 
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+      # - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
+      # - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers==1.1.1.1:53,1.0.0.1:53
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge.disablepropagationcheck=true
+    environment:
+      - DOCKER_HOST=tcp://socket-proxy:2375
+      - DOMAINNAME_CLOUD_SERVER=${DNS_DOMAIN}
+    ports:
+      - 80:80
+      # - 443:443
+    volumes:
+      # - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKERDIR}/appdata/traefik/data/:/data
+      - ${DOCKERDIR}/logs/traefik:/var/log/traefik
+      # - ${LOCAL_MOUNT}/traefik/letsencrypt:/letsencrypt
+      - /etc/traefik:/etc/traefik
+    networks:
+      tripbot-net:
+      traefik-net:
+      portainer-net:
+      socket-net:
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik-rtr.service=api@internal
+      - traefik.http.routers.traefik-rtr.rule=Host(`traefik.${DNS_DOMAIN}`)
+      - traefik.http.routers.traefik-rtr.entrypoints=web
+
+  docker-socket-proxy:
+    <<: *common-keys-core
+    image: tecnativa/docker-socket-proxy
+    container_name: socket-proxy
+    profiles: ["core", "all"]
+    networks:
+    - socket-net
+    # ports:
+    #   - "127.0.0.1:2375:2375" # Port 2375 should only ever get exposed to the internal network. When possible use this line.
+    # I use the next line instead, as I want portainer to manage multiple docker endpoints within my home network.
+    # - "2375:2375"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      <<: *default-tz-puid-pgid
+      LOG_LEVEL: info # debug,info,notice,warning,err,crit,alert,emerg
+      ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
+      # 0 to revoke access.
+      # 1 to grant access.
+      ## Granted by Default
+      EVENTS: 1
+      PING: 1
+      VERSION: 1
+      ## Revoked by Default
+      # Security critical
+      AUTH: 0
+      SECRETS: 0
+      POST: 0
+      # Not always needed
+      BUILD: 0
+      COMMIT: 0
+      CONFIGS: 0
+      CONTAINERS: 1 # Traefik, portainer, etc.
+      DISTRIBUTION: 0
+      EXEC: 0
+      IMAGES: 1 # Portainer
+      INFO: 1 # Portainer
+      NETWORKS: 1 # Portainer
+      NODES: 0
+      PLUGINS: 0
+      SERVICES: 1 # Portainer
+      SESSION: 0
+      SWARM: 0
+      SYSTEM: 0
+      TASKS: 1 # Portainer
+      VOLUMES: 1 # Portainer
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - traefik.enable=false
+
+  portainer:
+    <<: *common-keys-apps
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    profiles: ["apps", "admin", "all"]
+    command: -H tcp://socket-proxy:2375
+    # command: -H unix://var/run/docker.sock
+    # depends_on: 
+    #   - docker-socket-proxy
+    networks:
+      socket-net:
+      portainer-net:
+    volumes:
+      # - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    environment:
+      <<: *default-tz-puid-pgid
+      DOCKER_HOST: tcp://socket-proxy:2375
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - traefik.enable=true
+      - traefik.docker.network=portainer-net
+      - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
+      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
+      - traefik.http.routers.portainer-rtr.entrypoints=web
+      - traefik.http.routers.portainer-rtr.service=portainer-svc
+
+  tripbot:
+    <<: *common-keys-apps
+    build: https://github.com/tripsit/tripbot.git
+    container_name: tripbot
+    profiles: ["apps", "tripbot", "all"]
+    environment:
+      <<: *default-tz-puid-pgid
+    networks:
+      - tripbot-net
+    labels:
+    - com.centurylinklabs.watchtower.enable=true
+    - traefik.enable=false
+
+########################### NETWORKS
+networks:
+  portainer-net:
+    name: portainer-net
+  socket-net:
+    name: socket-net
+  traefik-net:
+    name: traefik-net
+  tripbot-net:
+    name: tripbot-net
+
+########################### VOLUMES
+volumes:
+  portainer-data:
+    name: portainer-data
+
+########################### SECRETS
+secrets:
+  authelia_jwt_secret:
+    file: $SECRETSDIR/authelia_jwt_secret
+
+########################### TODO
+
+  # tripbot_website:
+  #   <<: *common-keys-apps
+  #   build: https://github.com/tripsit/tripbot-website.git
+  #   container_name: website
+  #   profiles: ["apps", "tripbot", "all"]
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #   networks:
+  #     - tripbot-net
+  #   labels:
+  #   - com.centurylinklabs.watchtower.enable=true
+  #   - traefik.enable=true
+  #   - traefik.docker.network=tripbot-net
+  #   - traefik.http.services.tripbot_website-svc.loadbalancer.server.port=8080
+  #   - traefik.http.routers.tripbot_website-rtr.rule=Host(`tripbot.${DNS_DOMAIN}`, `${OTHER_DOMAIN}`)
+  #   - traefik.http.routers.tripbot_website-rtr.entrypoints=websecure
+  #   - traefik.http.routers.tripbot_website-rtr.service=tripbot_website-svc
+  #   - traefik.http.routers.tripbot_website-rtr.tls=true
+  #   - traefik.http.routers.tripbot_website-rtr.middlewares=chain-no-auth@file
+  
+  # postgres:
+  #   <<: *common-keys-apps
+  #   build: https://github.com/tripsit/tripbot-website.git
+  #   container_name: database
+  #   profiles: ["apps", "tripbot", "all"]
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #   networks:
+  #     - database-net
+  #   labels:
+  #   - com.centurylinklabs.watchtower.enable=true
+  #   - traefik.enable=false

@@ -8,6 +8,13 @@ It will give you a local copy of the Tripsit Discord Bot.
 This is a work in progress. It's not perfect, and it's not complete. It's a work in progress. \
 If you have any questions, please ask in the #dev-general channel on the Tripsit Discord server.
 
+
+# New docker instructions
+sudo apt install libnss3-tools -y
+
+
+
+
 # Discord bot setup
 **Create a bot application** \
 https://discordjs.guide/preparations/setting-up-a-bot-application.html \
