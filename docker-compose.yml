@@ -180,15 +180,28 @@ services:
       - traefik.http.routers.portainer-rtr.entrypoints=web
       - traefik.http.routers.portainer-rtr.service=portainer-svc
 
-  tripbot:
+  discord.js:
     <<: *common-keys-apps
-    build: https://github.com/tripsit/tripbot.git
+    build:
+      context: https://github.com/tripsit/tripbot.git#Docker-update
+      dockerfile: ./Dockerfile
+      # Only will build development stage from our dockerfile
+      target: development
     container_name: tripbot
     profiles: ["apps", "tripbot", "all"]
+    volumes:
+      - tripbot-data:/usr/src/app/ # Needed for hot-reloading of source code
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /usr/src/app
+    env_file:
+      - .env
     environment:
       <<: *default-tz-puid-pgid
     networks:
-      - tripbot-net
+        - tripbot-net
+    # Run a command against the development stage of the image
+    command: npx tsc-watch --onSuccess "npx nodemon --config ./nodemon.json"
     labels:
     - com.centurylinklabs.watchtower.enable=true
     - traefik.enable=false
@@ -208,6 +221,13 @@ networks:
 volumes:
   portainer-data:
     name: portainer-data
+  tripbot-data:
+    name: tripbot-data
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: './repos/tripbot/'
 
 ########################### SECRETS
 secrets:

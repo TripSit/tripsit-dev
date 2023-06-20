@@ -2,7 +2,7 @@
 	"folders": [
 		{
 			"name": "@TripSit/TripBot",
-			"path": "./repos/TripBot"
+			"path": "./repos/tripbot"
 		},
 		{
 			"name": "@TripSit/TripBot-website",

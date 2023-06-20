@@ -231,6 +231,7 @@ THUMBUP
 TICKETBOOTH
 timeouting
 timestring
+traefik
 Tramadol
 tripbot
 TRIPBOT
