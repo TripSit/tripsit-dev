@@ -209,11 +209,16 @@ services:
 
   tripbot_website:
     <<: *common-keys-apps
-    build: https://github.com/tripsit/tripbot-website.git
+    # build: https://github.com/tripsit/tripbot-website.git
+    build:
+      context: https://github.com/tripsit/tripbot-website.git
+      dockerfile: ./Dockerfile
+      # Only will build development stage from our dockerfile
+      target: development
     container_name: tripbot_website
     profiles: ["apps", "tripbot", "all"]
     volumes:
-    #   - tripbot_website-data:/usr/src/app/ # Needed for hot-reloading of source code
+      - tripbot_website-data:/usr/src/app/ # Needed for hot-reloading of source code
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     working_dir: /usr/src/app
@@ -230,10 +235,11 @@ services:
     # - com.centurylinklabs.watchtower.enable=true
     - traefik.enable=true
     - traefik.docker.network=tripbot-net
-    - traefik.http.services.tripbot_website-svc.loadbalancer.server.port=8080
+    - traefik.http.services.tripbot_website-svc.loadbalancer.server.port=5173
     - traefik.http.routers.tripbot_website-rtr.rule=Host(`tripbot.${DNS_DOMAIN}`)
     - traefik.http.routers.tripbot_website-rtr.entrypoints=web
     - traefik.http.routers.tripbot_website-rtr.service=tripbot_website-svc
+    command: npx vite --host
 
 ########################### NETWORKS
 networks:
