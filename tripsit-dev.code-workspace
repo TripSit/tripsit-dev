@@ -5,8 +5,8 @@
 			"path": "./repos/tripbot"
 		},
 		{
-			"name": "@TripSit/TripBot-website",
-			"path": "./repos/tripbot-website"
+			"name": "@TripSit/TripBot_Website",
+			"path": "./repos/tripbot_website"
 		},
 		{
 			"name": "@TripSit/http-api",

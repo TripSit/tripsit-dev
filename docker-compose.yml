@@ -98,6 +98,7 @@ services:
       portainer-net:
       socket-net:
     labels:
+      # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
       - traefik.http.routers.traefik-rtr.service=api@internal
       - traefik.http.routers.traefik-rtr.rule=Host(`traefik.${DNS_DOMAIN}`)
@@ -150,7 +151,7 @@ services:
       TASKS: 1 # Portainer
       VOLUMES: 1 # Portainer
     labels:
-      - com.centurylinklabs.watchtower.enable=true
+      # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
 
   portainer:
@@ -172,7 +173,7 @@ services:
       <<: *default-tz-puid-pgid
       DOCKER_HOST: tcp://socket-proxy:2375
     labels:
-      - com.centurylinklabs.watchtower.enable=true
+      # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
       - traefik.docker.network=portainer-net
       - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
@@ -203,8 +204,36 @@ services:
     # Run a command against the development stage of the image
     command: npx tsc-watch --onSuccess "npx nodemon --config ./nodemon.json"
     labels:
-    - com.centurylinklabs.watchtower.enable=true
+    # - com.centurylinklabs.watchtower.enable=true
     - traefik.enable=false
+
+  tripbot_website:
+    <<: *common-keys-apps
+    build: https://github.com/tripsit/tripbot-website.git
+    container_name: tripbot_website
+    profiles: ["apps", "tripbot", "all"]
+    volumes:
+    #   - tripbot_website-data:/usr/src/app/ # Needed for hot-reloading of source code
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /usr/src/app
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      <<: *default-tz-puid-pgid
+      TZ: America/Chicago
+    networks:
+      - tripbot-net
+    labels:
+    # - com.centurylinklabs.watchtower.enable=true
+    - traefik.enable=true
+    - traefik.docker.network=tripbot-net
+    - traefik.http.services.tripbot_website-svc.loadbalancer.server.port=8080
+    - traefik.http.routers.tripbot_website-rtr.rule=Host(`tripbot.${DNS_DOMAIN}`)
+    - traefik.http.routers.tripbot_website-rtr.entrypoints=web
+    - traefik.http.routers.tripbot_website-rtr.service=tripbot_website-svc
 
 ########################### NETWORKS
 networks:
@@ -228,6 +257,13 @@ volumes:
       type: 'none'
       o: 'bind'
       device: './repos/tripbot/'
+  tripbot_website-data:
+    name: tripbot_website-data
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: './repos/tripbot_website/'
 
 ########################### SECRETS
 secrets:

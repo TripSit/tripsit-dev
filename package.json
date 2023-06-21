@@ -7,10 +7,11 @@
         "npm": "9.6.4"
     },
     "scripts": {
-        "start": "docker compose --profile all up -d --force-recreate --build --remove-orphans",
+        "start": "docker compose up tripbot_website -d --force-recreate --build --remove-orphans",
         "## Admin ##": "",
         "logs-traefik": "docker container logs traefik -f -n 100",
         "logs-portainer": "docker container logs portainer -f -n 100",
+        "logs-tripbot_website": "docker container logs tripbot_website -f -n 100",
         "## Dev ##": "",
         "bootstrap": "docker compose --profile core up -d --force-recreate --build --remove-orphans", 
         "up": "docker compose --profile apps up -d --force-recreate --build --remove-orphans",
