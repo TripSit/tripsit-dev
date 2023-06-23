@@ -9,16 +9,8 @@
 			"path": "./repos/tripbot_website"
 		},
 		{
-			"name": "@TripSit/http-api",
+			"name": "@TripSit/Database",
 			"path": "./repos/http-api"
-		},
-		{
-			"name": "@TripSit/admin-panel",
-			"path": "./repos/admin-panel"
-		},
-		{
-			"name": "@TripSit/data-admin",
-			"path": "./repos/data-admin"
 		},
 		{
 			"name": "@TripSit",
