@@ -13,7 +13,7 @@
 			"path": "./repos/database_backend"
 		},
 		{
-			"name": "@TripSit-dev",
+			"name": "@TripSit/Development",
 			"path": "."
 		},
 	],
