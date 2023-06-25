@@ -1,19 +1,21 @@
 # Tripsit Development Environment
 
-This will set up a development environment for Tripsit.me. 
+This will set up a development environment for Tripsit
 
-It will install all the dependencies and set up a local database, the same as the production environment. \
+Everything is contained in docker containers, so there should be no conflicts with your OS
+
+You should still npm install in whichever repo you're working on, but you shouldn't need to install anything else
+
+When you run 'npm start' it will setup:
+* Traefik - How this server 
+
 It will give you a local copy of the Tripsit Discord Bot.
 
 This is a work in progress. It's not perfect, and it's not complete. It's a work in progress. \
 If you have any questions, please ask in the #dev-general channel on the Tripsit Discord server.
 
-
 # New docker instructions
 sudo apt install libnss3-tools -y
-
-
-
 
 # Discord bot setup
 **Create a bot application** \

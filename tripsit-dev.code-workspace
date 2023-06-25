@@ -10,7 +10,7 @@
 		},
 		{
 			"name": "@TripSit/Database",
-			"path": "./repos/http-api"
+			"path": "./repos/database_backend"
 		},
 		{
 			"name": "@TripSit",
@@ -23,9 +23,8 @@
 		},
 		"eslint.workingDirectories": [
 			"./repos/TripBot",
-			"./repos/http-api",
-			"./repos/admin-panel",
-			"./repos/data-admin"
+			"./repos/tripbot_website",
+			"./repos/database_backend",
 		],
 		"cSpell.customDictionaries": {
 			"custom-dictionary-workspace": {
