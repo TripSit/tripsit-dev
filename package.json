@@ -7,7 +7,7 @@
         "npm": "9.6.4"
     },
     "scripts": {
-        "start": "docker compose up database_backend -d --force-recreate --build --remove-orphans",
+        "start": "docker compose up tripbot_website -d --force-recreate --build --remove-orphans --pull always",
         "## Admin ##": "",
         "logs-traefik": "docker container logs traefik -f -n 100",
         "logs-portainer": "docker container logs portainer -f -n 100",

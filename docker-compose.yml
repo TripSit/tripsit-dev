@@ -21,6 +21,7 @@ x-common-keys-apps: &common-keys-apps
 
 ########################### SERVICES
 services:
+  # Core
   traefik:
     <<: *common-keys-core
     image: traefik:latest
@@ -104,7 +105,32 @@ services:
       - traefik.http.routers.traefik-rtr.service=api@internal
       - traefik.http.routers.traefik-rtr.rule=Host(`traefik.${DNS_DOMAIN}`)
       - traefik.http.routers.traefik-rtr.entrypoints=web
-
+  portainer:
+    <<: *common-keys-apps
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    profiles: ["apps", "admin", "all"]
+    command: -H tcp://socket-proxy:2375
+    # command: -H unix://var/run/docker.sock
+    # depends_on: 
+    #   - docker-socket-proxy
+    networks:
+      socket-net:
+      portainer-net:
+    volumes:
+      # - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    environment:
+      <<: *default-tz-puid-pgid
+      DOCKER_HOST: tcp://socket-proxy:2375
+    labels:
+      # - com.centurylinklabs.watchtower.enable=true
+      - traefik.enable=true
+      - traefik.docker.network=portainer-net
+      - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
+      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
+      - traefik.http.routers.portainer-rtr.entrypoints=web
+      - traefik.http.routers.portainer-rtr.service=portainer-svc
   docker-socket-proxy:
     <<: *common-keys-core
     image: tecnativa/docker-socket-proxy
@@ -155,34 +181,8 @@ services:
       # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
 
-  portainer:
-    <<: *common-keys-apps
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    profiles: ["apps", "admin", "all"]
-    command: -H tcp://socket-proxy:2375
-    # command: -H unix://var/run/docker.sock
-    # depends_on: 
-    #   - docker-socket-proxy
-    networks:
-      socket-net:
-      portainer-net:
-    volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock
-      - portainer-data:/data
-    environment:
-      <<: *default-tz-puid-pgid
-      DOCKER_HOST: tcp://socket-proxy:2375
-    labels:
-      # - com.centurylinklabs.watchtower.enable=true
-      - traefik.enable=true
-      - traefik.docker.network=portainer-net
-      - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
-      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
-      - traefik.http.routers.portainer-rtr.entrypoints=web
-      - traefik.http.routers.portainer-rtr.service=portainer-svc
-
-  discord.js:
+  # Tripbot
+  tripbot:
     <<: *common-keys-apps
     build:
       context: https://github.com/tripsit/tripbot.git#Docker-update
@@ -264,7 +264,6 @@ services:
     labels:
       # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
-
   database_frontend:
     <<: *common-keys-apps
     build:
@@ -296,7 +295,6 @@ services:
     - traefik.http.routers.database_frontend-rtr.rule=Host(`database.${DNS_DOMAIN}`)
     - traefik.http.routers.database_frontend-rtr.entrypoints=web
     - traefik.http.routers.database_frontend-rtr.service=database_frontend-svc
-
   database_backend:
     <<: *common-keys-apps
     build:
@@ -332,7 +330,6 @@ services:
       - traefik.http.routers.database_backend-rtr.rule=Host(`api.${DNS_DOMAIN}`)
       - traefik.http.routers.database_backend-rtr.entrypoints=web
       - traefik.http.routers.database_backend-rtr.service=database_backend-svc
-
 
 ########################### NETWORKS
 networks:
@@ -391,8 +388,3 @@ volumes:
       type: 'none'
       o: 'bind'
       device: './repos/database_backend/'
-
-########################### SECRETS
-secrets:
-  authelia_jwt_secret:
-    file: $SECRETSDIR/authelia_jwt_secret
