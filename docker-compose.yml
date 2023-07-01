@@ -181,155 +181,7 @@ services:
       # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
 
-  # Tripbot
-  tripbot:
-    <<: *common-keys-apps
-    build:
-      context: https://github.com/tripsit/tripbot.git#Docker-update
-      dockerfile: ./Dockerfile
-      # Only will build development stage from our dockerfile
-      target: development
-    container_name: tripbot
-    profiles: ["apps", "tripbot", "all"]
-    volumes:
-      - tripbot-data:/usr/src/app/ # Needed for hot-reloading of source code
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    working_dir: /usr/src/app
-    env_file:
-      - .env
-    environment:
-      <<: *default-tz-puid-pgid
-    networks:
-        - tripbot-net
-    # Run a command against the development stage of the image
-    command: npx tsc-watch --onSuccess "npx nodemon --config ./nodemon.json"
-    labels:
-    # - com.centurylinklabs.watchtower.enable=true
-    - traefik.enable=false
 
-  tripbot_website:
-    <<: *common-keys-apps
-    # build: https://github.com/tripsit/tripbot-website.git
-    build:
-      context: https://github.com/tripsit/tripbot-website.git
-      dockerfile: ./Dockerfile
-      # Only will build development stage from our dockerfile
-      target: development
-    container_name: tripbot_website
-    profiles: ["apps", "tripbot", "all"]
-    volumes:
-      - tripbot_website-data:/usr/src/app/ # Needed for hot-reloading of source code
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    working_dir: /usr/src/app
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    environment:
-      <<: *default-tz-puid-pgid
-      TZ: America/Chicago
-    networks:
-      - tripbot-net
-    labels:
-    # - com.centurylinklabs.watchtower.enable=true
-    - traefik.enable=true
-    - traefik.docker.network=tripbot-net
-    - traefik.http.services.tripbot_website-svc.loadbalancer.server.port=5173
-    - traefik.http.routers.tripbot_website-rtr.rule=Host(`tripbot.${DNS_DOMAIN}`)
-    - traefik.http.routers.tripbot_website-rtr.entrypoints=web
-    - traefik.http.routers.tripbot_website-rtr.service=tripbot_website-svc
-    command: npx vite --host
-
-  database:
-    <<: *common-keys-apps
-    build:
-      context: https://github.com/TripSit/database-admin.git
-      dockerfile: ./Dockerfile-postgres
-    container_name: database
-    profiles: ["apps", "database", "all"]
-    volumes:
-      - database-data:/var/lib/postgresql/data
-    # ports:
-    #   - 5432:5432  # enables connecting locally via psql
-    networks:
-        - database_backend-net
-    environment:
-      <<: *default-tz-puid-pgid
-      POSTGRES_USER: tripsit
-      POSTGRES_DB: tripsit
-      POSTGRES_PASSWORD: SuperSecure123
-      POSTGRES_HOST_AUTH_METHOD: trust
-    labels:
-      # - com.centurylinklabs.watchtower.enable=true
-      - traefik.enable=false
-  database_frontend:
-    <<: *common-keys-apps
-    build:
-      context: https://github.com/TripSit/database-admin.git
-      dockerfile: ./Dockerfile-pgadmin
-    container_name: database_frontend
-    profiles: ["apps", "database", "all"]
-    depends_on:
-      - database
-    # ports:
-    #     - 8081:80
-    networks:
-        - database_frontend-net
-        - database_backend-net
-    volumes:
-      - database_frontend-data:/var/lib/pgadmin
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    environment:
-      <<: *default-tz-puid-pgid
-      TZ: America/Chicago
-      PGADMIN_DEFAULT_EMAIL: user@tripsit.me
-      PGADMIN_DEFAULT_PASSWORD: SuperSecret123
-    labels:
-    # - com.centurylinklabs.watchtower.enable=true
-    - traefik.enable=true
-    - traefik.docker.network=database_frontend-net
-    - traefik.http.services.database_frontend-svc.loadbalancer.server.port=80
-    - traefik.http.routers.database_frontend-rtr.rule=Host(`database.${DNS_DOMAIN}`)
-    - traefik.http.routers.database_frontend-rtr.entrypoints=web
-    - traefik.http.routers.database_frontend-rtr.service=database_frontend-svc
-  database_backend:
-    <<: *common-keys-apps
-    build:
-      context: https://github.com/TripSit/database-admin.git
-      dockerfile: ./Dockerfile
-      # Only will build development stage from our dockerfile
-      target: development
-    container_name: database_backend
-    profiles: ["apps", "database", "all"]
-    depends_on:
-      - database
-    command: npm run start
-    # ports:
-    #   - 5000:5000
-    #   - 9229:9229
-    networks:
-      - database_frontend-net
-      - database_backend-net
-    volumes:
-      - database_backend-data:/usr/src/app
-      # - ./src/scripts/init-db.sh:/docker-entrypoint-initdb.d/initialize-database.sh
-      - /usr/src/app/node_modules
-    environment:
-      <<: *default-tz-puid-pgid
-      PORT: 5000
-      TZ: America/Chicago
-      DATABASE_URL: postgres://tripsit:SuperSecure123@database/tripsit
-    labels:
-      # - com.centurylinklabs.watchtower.enable=true
-      - traefik.enable=true
-      - traefik.docker.network=database_backend-net
-      - traefik.http.services.database_backend-svc.loadbalancer.server.port=5000
-      - traefik.http.routers.database_backend-rtr.rule=Host(`api.${DNS_DOMAIN}`)
-      - traefik.http.routers.database_backend-rtr.entrypoints=web
-      - traefik.http.routers.database_backend-rtr.service=database_backend-svc
 
 ########################### NETWORKS
 networks:
@@ -388,3 +240,203 @@ volumes:
       type: 'none'
       o: 'bind'
       device: './repos/database_backend/'
+
+#### Notes
+
+  # # Tripbot
+  # tripbot:
+  #   <<: *common-keys-apps
+  #   build:
+  #     context: https://github.com/tripsit/tripbot.git#Docker-update
+  #     dockerfile: ./Dockerfile
+  #     # Only will build development stage from our dockerfile
+  #     target: development
+  #   container_name: tripbot
+  #   profiles: ["apps", "tripbot", "all"]
+  #   volumes:
+  #     - tripbot-data:/usr/src/app/ # Needed for hot-reloading of source code
+  #     - /etc/timezone:/etc/timezone:ro
+  #     - /etc/localtime:/etc/localtime:ro
+  #   working_dir: /usr/src/app
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #   networks:
+  #       - tripbot-net
+  #   # Run a command against the development stage of the image
+  #   command: npx tsc-watch --onSuccess "npx nodemon --config ./nodemon.json"
+  #   labels:
+  #   # - com.centurylinklabs.watchtower.enable=true
+  #   - traefik.enable=false
+  # tripbot_website:
+  #   <<: *common-keys-apps
+  #   # build: https://github.com/tripsit/tripbot-website.git
+  #   build:
+  #     context: https://github.com/tripsit/tripbot-website.git
+  #     dockerfile: ./Dockerfile
+  #     # Only will build development stage from our dockerfile
+  #     target: development
+  #   container_name: tripbot_website
+  #   profiles: ["apps", "tripbot", "all"]
+  #   volumes:
+  #     - tripbot_website-data:/usr/src/app/ # Needed for hot-reloading of source code
+  #     - /etc/timezone:/etc/timezone:ro
+  #     - /etc/localtime:/etc/localtime:ro
+  #   working_dir: /usr/src/app
+  #   ports:
+  #     - "8080:8080"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #     TZ: America/Chicago
+  #   networks:
+  #     - tripbot-net
+  #   labels:
+  #   # - com.centurylinklabs.watchtower.enable=true
+  #   - traefik.enable=true
+  #   - traefik.docker.network=tripbot-net
+  #   - traefik.http.services.tripbot_website-svc.loadbalancer.server.port=5173
+  #   - traefik.http.routers.tripbot_website-rtr.rule=Host(`tripbot.${DNS_DOMAIN}`)
+  #   - traefik.http.routers.tripbot_website-rtr.entrypoints=web
+  #   - traefik.http.routers.tripbot_website-rtr.service=tripbot_website-svc
+  #   command: npx vite --host
+  # database:
+  #   <<: *common-keys-apps
+  #   build:
+  #     context: https://github.com/TripSit/database-admin.git
+  #     dockerfile: ./Dockerfile-postgres
+  #   container_name: database
+  #   profiles: ["apps", "database", "all"]
+  #   volumes:
+  #     - database-data:/var/lib/postgresql/data
+  #   # ports:
+  #   #   - 5432:5432  # enables connecting locally via psql
+  #   networks:
+  #       - database_backend-net
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #     POSTGRES_USER: tripsit
+  #     POSTGRES_DB: tripsit
+  #     POSTGRES_PASSWORD: SuperSecure123
+  #     POSTGRES_HOST_AUTH_METHOD: trust
+  #   labels:
+  #     # - com.centurylinklabs.watchtower.enable=true
+  #     - traefik.enable=false
+  # database_frontend:
+  #   <<: *common-keys-apps
+  #   build:
+  #     context: https://github.com/TripSit/database-admin.git
+  #     dockerfile: ./Dockerfile-pgadmin
+  #   container_name: database_frontend
+  #   profiles: ["apps", "database", "all"]
+  #   depends_on:
+  #     - database
+  #   # ports:
+  #   #     - 8081:80
+  #   networks:
+  #       - database_frontend-net
+  #       - database_backend-net
+  #   volumes:
+  #     - database_frontend-data:/var/lib/pgadmin
+  #     - /etc/timezone:/etc/timezone:ro
+  #     - /etc/localtime:/etc/localtime:ro
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #     TZ: America/Chicago
+  #     PGADMIN_DEFAULT_EMAIL: user@tripsit.me
+  #     PGADMIN_DEFAULT_PASSWORD: SuperSecret123
+  #   labels:
+  #   # - com.centurylinklabs.watchtower.enable=true
+  #   - traefik.enable=true
+  #   - traefik.docker.network=database_frontend-net
+  #   - traefik.http.services.database_frontend-svc.loadbalancer.server.port=80
+  #   - traefik.http.routers.database_frontend-rtr.rule=Host(`database.${DNS_DOMAIN}`)
+  #   - traefik.http.routers.database_frontend-rtr.entrypoints=web
+  #   - traefik.http.routers.database_frontend-rtr.service=database_frontend-svc
+  # database_backend:
+  #   <<: *common-keys-apps
+  #   build:
+  #     context: https://github.com/TripSit/database-admin.git
+  #     dockerfile: ./Dockerfile
+  #     # Only will build development stage from our dockerfile
+  #     target: development
+  #   container_name: database_backend
+  #   profiles: ["apps", "database", "all"]
+  #   depends_on:
+  #     - database
+  #   command: npm run start
+  #   # ports:
+  #   #   - 5000:5000
+  #   #   - 9229:9229
+  #   networks:
+  #     - database_frontend-net
+  #     - database_backend-net
+  #   volumes:
+  #     - database_backend-data:/usr/src/app
+  #     # - ./src/scripts/init-db.sh:/docker-entrypoint-initdb.d/initialize-database.sh
+  #     - /usr/src/app/node_modules
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #     PORT: 5000
+  #     TZ: America/Chicago
+  #     DATABASE_URL: postgres://tripsit:SuperSecure123@database/tripsit
+  #   labels:
+  #     # - com.centurylinklabs.watchtower.enable=true
+  #     - traefik.enable=true
+  #     - traefik.docker.network=database_backend-net
+  #     - traefik.http.services.database_backend-svc.loadbalancer.server.port=5000
+  #     - traefik.http.routers.database_backend-rtr.rule=Host(`api.${DNS_DOMAIN}`)
+  #     - traefik.http.routers.database_backend-rtr.entrypoints=web
+  #     - traefik.http.routers.database_backend-rtr.service=database_backend-svc
+
+  # Barman
+  # barman:
+  #   <<: *common-keys-apps
+  #   image: ubcctlt/barman
+  #   # https://hub.docker.com/r/ubcctlt/barman
+  #   container_name: barman
+  #   profiles: ["apps", "barman", "all"]
+  #   volumes:
+  #     - ${DOCKERDIR}/barman/cron.d:/etc/cron.d
+  #     - ${DOCKERDIR}/barman/creds:/etc/creds
+  #     # Barman configs
+  #     # - ${DOCKERDIR}/barman/config/barman.conf:/etc/barman.conf
+  #     # - ${DOCKERDIR}/barman/config/barman.d:/etc/barman/barman.d
+  #     # cron job for taking weekly basebackups
+  #     # - ./basebackups.cron:/etc/cron.d/basebackups:ro
+  #     # The right side of this mount should be set to BARMAN_DATA_DIR.
+  #     # - ${DOCKERDIR}/appdata/barman/:/var/lib/barman
+  #     # The right side of this mount should be set to BARMAN_LOG_DIR.
+  #     - ${DOCKERDIR}/logs/barman:/var/log/barman
+  #     # Password file
+  #     # - ${DOCKERDIR}/barman/pgpass:/private/pgpass:ro
+
+  #   networks:
+  #       - tripbot-net
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #     # DOCKER_HOST: tcp://socket-proxy:2375
+  #     BARMAN_CRON_SRC: /etc/cron.d
+  #     # BARMAN_LOG_DIR: /var/log/barman
+  #     # BARMAN_SSH_KEY_DIR: /private/ssh
+  #     # BARMAN_PGPASSFILE: /private/pgpass
+  #     BARMAN_CRON_SCHEDULE: "* * * * *"
+  #     # BARMAN_BACKUP_SCHEDULE: 0 4 * * * # Every day at 4 am
+  #     BARMAN_BACKUP_SCHEDULE: "0 * * * *" # Every hour
+  #     # BARMAN_LOG_LEVEL: INFO
+  #     DB_HOST: database
+  #     DB_PORT: 5432
+  #     DB_SUPERUSER: barman
+  #     DB_SUPERUSER_PASSWORD: ${BARMAN_PASSWORD}
+  #     DB_SUPERUSER_DATABASE: tripsit
+  #     DB_REPLICATION_USER: streaming_barman
+  #     DB_REPLICATION_PASSWORD: ${BARMAN_STREAMING_PASSWORD}
+  #     DB_SLOT_NAME: barman
+  #     DB_BACKUP_METHOD: postgres
+  #     GOOGLE_APPLICATION_CREDENTIALS: /etc/creds/gcloud.json
+
+  #   labels:
+  #     # - com.centurylinklabs.watchtower.enable=true
+  #     - traefik.enable=false
