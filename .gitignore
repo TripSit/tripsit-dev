@@ -6,3 +6,7 @@
 node_modules
 .scannerwork/
 .VSCodeCounter
+*.db
+*.sqlite3
+*.key
+*.pub

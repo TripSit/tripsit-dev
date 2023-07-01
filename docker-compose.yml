@@ -1,5 +1,7 @@
 version: '3.9'
 
+name: tripsit-dev
+
 ########################### EXTENSION FIELDS
 # Common environment values
 x-environment: &default-tz-puid-pgid
@@ -27,8 +29,8 @@ services:
     image: traefik:latest
     container_name: traefik
     profiles: ["core", "all"]
-    # depends_on: 
-    #   - docker-socket-proxy
+    depends_on: 
+      - docker-socket-proxy
     command:
       # Global
       - --global.checkNewVersion=true
@@ -84,42 +86,69 @@ services:
     environment:
       - DOCKER_HOST=tcp://socket-proxy:2375
       - DOMAINNAME_CLOUD_SERVER=${DNS_DOMAIN}
+      # - CF_API_EMAIL=${CF_EMAIL}
+      # - CF_API_KEY=${CF_API_KEY}
     ports:
       - 80:80
       # - 443:443
     volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock
-      - ${DOCKERDIR}/appdata/traefik/data/:/data
+      - ${DOCKERDIR}/traefik/:/data
       - ${DOCKERDIR}/logs/traefik:/var/log/traefik
       # - ${LOCAL_MOUNT}/traefik/letsencrypt:/letsencrypt
       - /etc/traefik:/etc/traefik
     networks:
+      dozzle-net:
+      duplicati-net:
+      database_frontend-net:
+      database_backend-net:
+      drone-net:
+      files-net:
+      gotify-net:
+      gitlab-net:
+      it-net:
+      kuma-net:
+      lounge-vip-net:
+      lounge-net:
+      mail-net:
+      matrix-net:
+      monica-net:
+      netdata-net:
+      nginx-net:
+      oauth-net:
+      organizr-net:
+      portainer-net:
+      postgres-net:
+      privatebin-net:
+      speedtest-net:
+      socket-net:
+      trilium-net:
       tripbot-net:
       traefik-net:
-      portainer-net:
-      socket-net:
-      database_frontend-net:
     labels:
       # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
       - traefik.http.routers.traefik-rtr.service=api@internal
       - traefik.http.routers.traefik-rtr.rule=Host(`traefik.${DNS_DOMAIN}`)
       - traefik.http.routers.traefik-rtr.entrypoints=web
+      # - traefik.http.routers.traefik-rtr.tls.certresolver=letsencrypt
+      # - traefik.http.routers.traefik-rtr.tls.domains[0].main=${DNS_DOMAIN}
+      # - traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.${DNS_DOMAIN}
+      # - traefik.http.routers.traefik-rtr.tls.domains[1].main=${OTHER_DOMAIN}
+      # - traefik.http.routers.traefik-rtr.tls.domains[1].sans=*.${OTHER_DOMAIN}
+      # - traefik.http.routers.traefik-rtr.middlewares=middlewares-traefik-strip@file,chain-no-auth@file
   portainer:
-    <<: *common-keys-apps
+    <<: *common-keys-core
     image: portainer/portainer-ce:latest
     container_name: portainer
-    profiles: ["apps", "admin", "all"]
+    profiles: ["core", "admin", "all"]
     command: -H tcp://socket-proxy:2375
-    # command: -H unix://var/run/docker.sock
-    # depends_on: 
-    #   - docker-socket-proxy
+    depends_on: 
+      - docker-socket-proxy
     networks:
       socket-net:
       portainer-net:
     volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock
-      - portainer-data:/data
+      - ${DOCKERDIR}/appdata/portainer/data/:/data
     environment:
       <<: *default-tz-puid-pgid
       DOCKER_HOST: tcp://socket-proxy:2375
@@ -129,8 +158,10 @@ services:
       - traefik.docker.network=portainer-net
       - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
       - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
-      - traefik.http.routers.portainer-rtr.entrypoints=web
       - traefik.http.routers.portainer-rtr.service=portainer-svc
+      - traefik.http.routers.portainer-rtr.entrypoints=web
+      # - traefik.http.routers.portainer-rtr.tls=true
+      # - traefik.http.routers.portainer-rtr.middlewares=chain-no-auth@file
   docker-socket-proxy:
     <<: *common-keys-core
     image: tecnativa/docker-socket-proxy
@@ -138,10 +169,6 @@ services:
     profiles: ["core", "all"]
     networks:
     - socket-net
-    # ports:
-    #   - "127.0.0.1:2375:2375" # Port 2375 should only ever get exposed to the internal network. When possible use this line.
-    # I use the next line instead, as I want portainer to manage multiple docker endpoints within my home network.
-    # - "2375:2375"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -158,9 +185,9 @@ services:
       # Security critical
       AUTH: 0
       SECRETS: 0
-      POST: 0
+      POST: 1 # Watchtower
       # Not always needed
-      BUILD: 0
+      BUILD: 1 # Drone
       COMMIT: 0
       CONFIGS: 0
       CONTAINERS: 1 # Traefik, portainer, etc.
@@ -178,70 +205,131 @@ services:
       TASKS: 1 # Portainer
       VOLUMES: 1 # Portainer
     labels:
-      # - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.enable=true
+      - traefik.enable=false
+  fail2ban:
+    <<: *common-keys-core
+    image: crazymax/fail2ban:latest
+    container_name: fail2ban
+    profiles: ["core", "all"]
+    volumes:
+      - ${DOCKERDIR}/appdata/fail2ban/log:/var/log:ro
+      - ${DOCKERDIR}/appdata/fail2ban/data:/data
+    environment:
+      <<: *default-tz-puid-pgid
+    network_mode: host
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
 
-
+########################### VOLUMES
+volumes:
+  netdata-config:
+    name: netdata-config
+  netdata-lib:
+    name: netdata-lib
+  netdata-cache:
+    name: netdata-cache
+  pgadmin-data:
+    name: pgadmin-data
 
 ########################### NETWORKS
 networks:
+  codimd-net:
+    name: codimd-net
+  database-net:
+    name: database-net
+  database_frontend-net:
+    name: database_frontend-net
+  database_backend-net:
+    name: database_backend-net
+  dozzle-net:
+    name: dozzle-net
+  duplicati-net:
+    name: duplicati-net
+  drone-net:
+    name: drone-net
+  drone_private-net:
+    name: drone_private-net
+  files-net:
+    name: files-net
+  gotify-net:
+    name: gotify-net
+  gitlab-net:
+    name: gitlab-net
+  gitlab-net-private:
+    name: gitlab-net-private
+  it-net:
+    name: it-net
+  kuma-net:
+    name: kuma-net
+  lounge-vip-net:
+    name: lounge-vip-net
+  lounge-net:
+    name: lounge-net
+  matrix-net:
+    name: matrix-net
+  mail-net:
+    name: mail-net
+  monica-net:
+    name: monica-net
+  netdata-net:
+    name: netdata-net
+  nginx-net:
+    name: nginx-net
+  nginx-private-net:
+    name: nginx-private-net
+  oauth-net:
+    name: oauth-net
+  organizr-net:
+    name: organizr-net
   portainer-net:
     name: portainer-net
+  postgres-net:
+    name: postgres-net
+  postgres-private-net:
+    name: postgres-private-net
+  privatebin-net:
+    name: privatebin-net
+  speedtest-net:
+    name: speedtest-net
   socket-net:
     name: socket-net
   traefik-net:
     name: traefik-net
   tripbot-net:
     name: tripbot-net
-  database_frontend-net:
-    name: database_frontend-net
-  database_backend-net:
-    name: database_backend-net
+  trilium-net:
+    name: trilium-net
 
-########################### VOLUMES
-volumes:
-  portainer-data:
-    name: portainer-data
-  tripbot-data:
-    name: tripbot-data
-    driver: local
-    driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: './repos/tripbot/'
-  tripbot_website-data:
-    name: tripbot_website-data
-    driver: local
-    driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: './repos/tripbot_website/'
+#### TODO
 
-  database-data:
-    name: database-data
-    driver: local
-    driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: './repos/database/'
-
-  database_frontend-data:
-    name: database_frontend-data
-    driver: local
-    driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: './repos/database_frontend/'
-
-  database_backend-data:
-    name: database_backend-data
-    driver: local
-    driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: './repos/database_backend/'
-
-#### Notes
+  # matrix:
+  #   <<: *common-keys-apps
+  #   image: matrixdotorg/synapse:latest
+  #   container_name: matrix
+  #   profiles: ["apps", "matrix", "all"]
+  #   networks:
+  #     - matrix-net
+  #   volumes:
+  #     - ${DOCKERDIR}/appdata/matrix/data:/data
+  #   environment:
+  #     - SYNAPSE_SERVER_NAME=TripSit
+  #     - SYNAPSE_REPORT_STATS=yes
+  #   command: generate
+  #   labels:
+  #   - com.centurylinklabs.watchtower.enable=true
+  #   - traefik.enable=false
+  #   # - traefik.docker.network=privatebin-net
+  #   # - traefik.http.services.privatebin-svc.loadbalancer.server.port=8080
+  #   # - traefik.http.routers.privatebin-rtr.rule=Host(`privatebin.${DNS_DOMAIN}`)
+  #   # - traefik.http.routers.privatebin-rtr.entrypoints=websecure
+  #   # - traefik.http.routers.privatebin-rtr.service=privatebin-svc
+  #   # - traefik.http.routers.privatebin-rtr.tls=true
+  #   # - traefik.http.routers.privatebin-rtr.middlewares=chain-basic-auth@file
 
   # # Tripbot
   # tripbot:
@@ -269,6 +357,8 @@ volumes:
   #   labels:
   #   # - com.centurylinklabs.watchtower.enable=true
   #   - traefik.enable=false
+
+
   # tripbot_website:
   #   <<: *common-keys-apps
   #   # build: https://github.com/tripsit/tripbot-website.git
@@ -302,94 +392,6 @@ volumes:
   #   - traefik.http.routers.tripbot_website-rtr.entrypoints=web
   #   - traefik.http.routers.tripbot_website-rtr.service=tripbot_website-svc
   #   command: npx vite --host
-  # database:
-  #   <<: *common-keys-apps
-  #   build:
-  #     context: https://github.com/TripSit/database-admin.git
-  #     dockerfile: ./Dockerfile-postgres
-  #   container_name: database
-  #   profiles: ["apps", "database", "all"]
-  #   volumes:
-  #     - database-data:/var/lib/postgresql/data
-  #   # ports:
-  #   #   - 5432:5432  # enables connecting locally via psql
-  #   networks:
-  #       - database_backend-net
-  #   environment:
-  #     <<: *default-tz-puid-pgid
-  #     POSTGRES_USER: tripsit
-  #     POSTGRES_DB: tripsit
-  #     POSTGRES_PASSWORD: SuperSecure123
-  #     POSTGRES_HOST_AUTH_METHOD: trust
-  #   labels:
-  #     # - com.centurylinklabs.watchtower.enable=true
-  #     - traefik.enable=false
-  # database_frontend:
-  #   <<: *common-keys-apps
-  #   build:
-  #     context: https://github.com/TripSit/database-admin.git
-  #     dockerfile: ./Dockerfile-pgadmin
-  #   container_name: database_frontend
-  #   profiles: ["apps", "database", "all"]
-  #   depends_on:
-  #     - database
-  #   # ports:
-  #   #     - 8081:80
-  #   networks:
-  #       - database_frontend-net
-  #       - database_backend-net
-  #   volumes:
-  #     - database_frontend-data:/var/lib/pgadmin
-  #     - /etc/timezone:/etc/timezone:ro
-  #     - /etc/localtime:/etc/localtime:ro
-  #   environment:
-  #     <<: *default-tz-puid-pgid
-  #     TZ: America/Chicago
-  #     PGADMIN_DEFAULT_EMAIL: user@tripsit.me
-  #     PGADMIN_DEFAULT_PASSWORD: SuperSecret123
-  #   labels:
-  #   # - com.centurylinklabs.watchtower.enable=true
-  #   - traefik.enable=true
-  #   - traefik.docker.network=database_frontend-net
-  #   - traefik.http.services.database_frontend-svc.loadbalancer.server.port=80
-  #   - traefik.http.routers.database_frontend-rtr.rule=Host(`database.${DNS_DOMAIN}`)
-  #   - traefik.http.routers.database_frontend-rtr.entrypoints=web
-  #   - traefik.http.routers.database_frontend-rtr.service=database_frontend-svc
-  # database_backend:
-  #   <<: *common-keys-apps
-  #   build:
-  #     context: https://github.com/TripSit/database-admin.git
-  #     dockerfile: ./Dockerfile
-  #     # Only will build development stage from our dockerfile
-  #     target: development
-  #   container_name: database_backend
-  #   profiles: ["apps", "database", "all"]
-  #   depends_on:
-  #     - database
-  #   command: npm run start
-  #   # ports:
-  #   #   - 5000:5000
-  #   #   - 9229:9229
-  #   networks:
-  #     - database_frontend-net
-  #     - database_backend-net
-  #   volumes:
-  #     - database_backend-data:/usr/src/app
-  #     # - ./src/scripts/init-db.sh:/docker-entrypoint-initdb.d/initialize-database.sh
-  #     - /usr/src/app/node_modules
-  #   environment:
-  #     <<: *default-tz-puid-pgid
-  #     PORT: 5000
-  #     TZ: America/Chicago
-  #     DATABASE_URL: postgres://tripsit:SuperSecure123@database/tripsit
-  #   labels:
-  #     # - com.centurylinklabs.watchtower.enable=true
-  #     - traefik.enable=true
-  #     - traefik.docker.network=database_backend-net
-  #     - traefik.http.services.database_backend-svc.loadbalancer.server.port=5000
-  #     - traefik.http.routers.database_backend-rtr.rule=Host(`api.${DNS_DOMAIN}`)
-  #     - traefik.http.routers.database_backend-rtr.entrypoints=web
-  #     - traefik.http.routers.database_backend-rtr.service=database_backend-svc
 
   # Barman
   # barman:
