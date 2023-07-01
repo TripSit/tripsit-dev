@@ -1,1 +1,0 @@
-0 * * * * barman-cloud-backup -t --cloud-provider google-cloud-storage --gcp-project TripSit --dbname tripsit destination_url gs://barman server_name
