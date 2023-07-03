@@ -24,13 +24,83 @@ x-common-keys-apps: &common-keys-apps
 ########################### SERVICES
 services:
   # Core
+  docker-socket-proxy:
+    <<: *common-keys-core
+    image: tecnativa/docker-socket-proxy
+    container_name: socket-proxy
+    ports:
+    - "127.0.0.1:2375:2375" # Port 2375 should only ever get exposed to the internal network.
+    networks:
+    - socket-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      <<: *default-tz-puid-pgid
+      LOG_LEVEL: info # debug,info,notice,warning,err,crit,alert,emerg
+      ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
+      # 0 to revoke access.
+      # 1 to grant access.
+      ## Granted by Default
+      EVENTS: 1
+      PING: 1
+      VERSION: 1
+      ## Revoked by Default
+      # Security critical
+      AUTH: 0
+      SECRETS: 0
+      POST: 1 # Watchtower
+      # Not always needed
+      BUILD: 1 # Drone
+      COMMIT: 0
+      CONFIGS: 0
+      CONTAINERS: 1 # Traefik, portainer, etc.
+      DISTRIBUTION: 0
+      EXEC: 0
+      IMAGES: 1 # Portainer
+      INFO: 1 # Portainer
+      NETWORKS: 1 # Portainer
+      NODES: 0
+      PLUGINS: 0
+      SERVICES: 1 # Portainer
+      SESSION: 0
+      SWARM: 0
+      SYSTEM: 0
+      TASKS: 1 # Portainer
+      VOLUMES: 1 # Portainer
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - traefik.enable=false
+  portainer:
+    <<: *common-keys-core
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    command: -H tcp://socket-proxy:2375
+    depends_on: 
+      - docker-socket-proxy
+    # ports:
+    #   - 9000:9000
+    networks:
+      socket-net:
+      portainer-net:
+    volumes:
+      - ${DOCKERDIR}/appdata/portainer/data/:/data
+    environment:
+      <<: *default-tz-puid-pgid
+      DOCKER_HOST: tcp://socket-proxy:2375
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - traefik.enable=true
+      - traefik.docker.network=portainer-net
+      - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
+      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
+      - traefik.http.routers.portainer-rtr.service=portainer-svc
+      - traefik.http.routers.portainer-rtr.entrypoints=web
+      # - traefik.http.routers.portainer-rtr.tls=true
+      - traefik.http.routers.portainer-rtr.middlewares=chain-no-auth@file
   traefik:
     <<: *common-keys-core
     image: traefik:latest
     container_name: traefik
-    profiles: ["core", "all"]
-    depends_on: 
-      - docker-socket-proxy
     command:
       # Global
       - --global.checkNewVersion=true
@@ -94,8 +164,10 @@ services:
     volumes:
       - ${DOCKERDIR}/traefik/:/data
       - ${DOCKERDIR}/logs/traefik:/var/log/traefik
-      # - ${LOCAL_MOUNT}/traefik/letsencrypt:/letsencrypt
+      - ${LOCAL_MOUNT}/traefik/letsencrypt:/letsencrypt
       - /etc/traefik:/etc/traefik
+    #   - ${DOCKERDIR}/traefik/dynamic:/data/rules
+    #   - ${DOCKERDIR}/traefik/static:/etc/traefik
     networks:
       dozzle-net:
       duplicati-net:
@@ -107,11 +179,13 @@ services:
       gitlab-net:
       it-net:
       kuma-net:
+      keycloak-net:
       lounge-vip-net:
       lounge-net:
       mail-net:
       matrix-net:
       monica-net:
+      moodle-net:
       netdata-net:
       nginx-net:
       oauth-net:
@@ -124,6 +198,7 @@ services:
       trilium-net:
       tripbot-net:
       traefik-net:
+      whoami-net:
     labels:
       # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
@@ -135,83 +210,11 @@ services:
       # - traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.${DNS_DOMAIN}
       # - traefik.http.routers.traefik-rtr.tls.domains[1].main=${OTHER_DOMAIN}
       # - traefik.http.routers.traefik-rtr.tls.domains[1].sans=*.${OTHER_DOMAIN}
-      # - traefik.http.routers.traefik-rtr.middlewares=middlewares-traefik-strip@file,chain-no-auth@file
-  portainer:
-    <<: *common-keys-core
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    profiles: ["core", "admin", "all"]
-    command: -H tcp://socket-proxy:2375
-    depends_on: 
-      - docker-socket-proxy
-    networks:
-      socket-net:
-      portainer-net:
-    volumes:
-      - ${DOCKERDIR}/appdata/portainer/data/:/data
-    environment:
-      <<: *default-tz-puid-pgid
-      DOCKER_HOST: tcp://socket-proxy:2375
-    labels:
-      # - com.centurylinklabs.watchtower.enable=true
-      - traefik.enable=true
-      - traefik.docker.network=portainer-net
-      - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
-      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
-      - traefik.http.routers.portainer-rtr.service=portainer-svc
-      - traefik.http.routers.portainer-rtr.entrypoints=web
-      # - traefik.http.routers.portainer-rtr.tls=true
-      # - traefik.http.routers.portainer-rtr.middlewares=chain-no-auth@file
-  docker-socket-proxy:
-    <<: *common-keys-core
-    image: tecnativa/docker-socket-proxy
-    container_name: socket-proxy
-    profiles: ["core", "all"]
-    networks:
-    - socket-net
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      <<: *default-tz-puid-pgid
-      LOG_LEVEL: info # debug,info,notice,warning,err,crit,alert,emerg
-      ## Variables match the URL prefix (i.e. AUTH blocks access to /auth/* parts of the API, etc.).
-      # 0 to revoke access.
-      # 1 to grant access.
-      ## Granted by Default
-      EVENTS: 1
-      PING: 1
-      VERSION: 1
-      ## Revoked by Default
-      # Security critical
-      AUTH: 0
-      SECRETS: 0
-      POST: 1 # Watchtower
-      # Not always needed
-      BUILD: 1 # Drone
-      COMMIT: 0
-      CONFIGS: 0
-      CONTAINERS: 1 # Traefik, portainer, etc.
-      DISTRIBUTION: 0
-      EXEC: 0
-      IMAGES: 1 # Portainer
-      INFO: 1 # Portainer
-      NETWORKS: 1 # Portainer
-      NODES: 0
-      PLUGINS: 0
-      SERVICES: 1 # Portainer
-      SESSION: 0
-      SWARM: 0
-      SYSTEM: 0
-      TASKS: 1 # Portainer
-      VOLUMES: 1 # Portainer
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-      - traefik.enable=false
+      - traefik.http.routers.traefik-rtr.middlewares=middlewares-traefik-strip@file,chain-no-auth@file
   fail2ban:
     <<: *common-keys-core
     image: crazymax/fail2ban:latest
     container_name: fail2ban
-    profiles: ["core", "all"]
     volumes:
       - ${DOCKERDIR}/appdata/fail2ban/log:/var/log:ro
       - ${DOCKERDIR}/appdata/fail2ban/data:/data
@@ -224,17 +227,6 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
-
-########################### VOLUMES
-volumes:
-  netdata-config:
-    name: netdata-config
-  netdata-lib:
-    name: netdata-lib
-  netdata-cache:
-    name: netdata-cache
-  pgadmin-data:
-    name: pgadmin-data
 
 ########################### NETWORKS
 networks:
@@ -264,6 +256,10 @@ networks:
     name: gitlab-net-private
   it-net:
     name: it-net
+  keycloak-net:
+    name: keycloak-net
+  keycloak_db-net:
+    name: keycloak_db-net
   kuma-net:
     name: kuma-net
   lounge-vip-net:
@@ -276,6 +272,10 @@ networks:
     name: mail-net
   monica-net:
     name: monica-net
+  moodle-net:
+    name: moodle-net
+  moodle_db-net:
+    name: moodle_db-net
   netdata-net:
     name: netdata-net
   nginx-net:
@@ -304,141 +304,5 @@ networks:
     name: tripbot-net
   trilium-net:
     name: trilium-net
-
-#### TODO
-
-  # matrix:
-  #   <<: *common-keys-apps
-  #   image: matrixdotorg/synapse:latest
-  #   container_name: matrix
-  #   profiles: ["apps", "matrix", "all"]
-  #   networks:
-  #     - matrix-net
-  #   volumes:
-  #     - ${DOCKERDIR}/appdata/matrix/data:/data
-  #   environment:
-  #     - SYNAPSE_SERVER_NAME=TripSit
-  #     - SYNAPSE_REPORT_STATS=yes
-  #   command: generate
-  #   labels:
-  #   - com.centurylinklabs.watchtower.enable=true
-  #   - traefik.enable=false
-  #   # - traefik.docker.network=privatebin-net
-  #   # - traefik.http.services.privatebin-svc.loadbalancer.server.port=8080
-  #   # - traefik.http.routers.privatebin-rtr.rule=Host(`privatebin.${DNS_DOMAIN}`)
-  #   # - traefik.http.routers.privatebin-rtr.entrypoints=websecure
-  #   # - traefik.http.routers.privatebin-rtr.service=privatebin-svc
-  #   # - traefik.http.routers.privatebin-rtr.tls=true
-  #   # - traefik.http.routers.privatebin-rtr.middlewares=chain-basic-auth@file
-
-  # # Tripbot
-  # tripbot:
-  #   <<: *common-keys-apps
-  #   build:
-  #     context: https://github.com/tripsit/tripbot.git#Docker-update
-  #     dockerfile: ./Dockerfile
-  #     # Only will build development stage from our dockerfile
-  #     target: development
-  #   container_name: tripbot
-  #   profiles: ["apps", "tripbot", "all"]
-  #   volumes:
-  #     - tripbot-data:/usr/src/app/ # Needed for hot-reloading of source code
-  #     - /etc/timezone:/etc/timezone:ro
-  #     - /etc/localtime:/etc/localtime:ro
-  #   working_dir: /usr/src/app
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     <<: *default-tz-puid-pgid
-  #   networks:
-  #       - tripbot-net
-  #   # Run a command against the development stage of the image
-  #   command: npx tsc-watch --onSuccess "npx nodemon --config ./nodemon.json"
-  #   labels:
-  #   # - com.centurylinklabs.watchtower.enable=true
-  #   - traefik.enable=false
-
-
-  # tripbot_website:
-  #   <<: *common-keys-apps
-  #   # build: https://github.com/tripsit/tripbot-website.git
-  #   build:
-  #     context: https://github.com/tripsit/tripbot-website.git
-  #     dockerfile: ./Dockerfile
-  #     # Only will build development stage from our dockerfile
-  #     target: development
-  #   container_name: tripbot_website
-  #   profiles: ["apps", "tripbot", "all"]
-  #   volumes:
-  #     - tripbot_website-data:/usr/src/app/ # Needed for hot-reloading of source code
-  #     - /etc/timezone:/etc/timezone:ro
-  #     - /etc/localtime:/etc/localtime:ro
-  #   working_dir: /usr/src/app
-  #   ports:
-  #     - "8080:8080"
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     <<: *default-tz-puid-pgid
-  #     TZ: America/Chicago
-  #   networks:
-  #     - tripbot-net
-  #   labels:
-  #   # - com.centurylinklabs.watchtower.enable=true
-  #   - traefik.enable=true
-  #   - traefik.docker.network=tripbot-net
-  #   - traefik.http.services.tripbot_website-svc.loadbalancer.server.port=5173
-  #   - traefik.http.routers.tripbot_website-rtr.rule=Host(`tripbot.${DNS_DOMAIN}`)
-  #   - traefik.http.routers.tripbot_website-rtr.entrypoints=web
-  #   - traefik.http.routers.tripbot_website-rtr.service=tripbot_website-svc
-  #   command: npx vite --host
-
-  # Barman
-  # barman:
-  #   <<: *common-keys-apps
-  #   image: ubcctlt/barman
-  #   # https://hub.docker.com/r/ubcctlt/barman
-  #   container_name: barman
-  #   profiles: ["apps", "barman", "all"]
-  #   volumes:
-  #     - ${DOCKERDIR}/barman/cron.d:/etc/cron.d
-  #     - ${DOCKERDIR}/barman/creds:/etc/creds
-  #     # Barman configs
-  #     # - ${DOCKERDIR}/barman/config/barman.conf:/etc/barman.conf
-  #     # - ${DOCKERDIR}/barman/config/barman.d:/etc/barman/barman.d
-  #     # cron job for taking weekly basebackups
-  #     # - ./basebackups.cron:/etc/cron.d/basebackups:ro
-  #     # The right side of this mount should be set to BARMAN_DATA_DIR.
-  #     # - ${DOCKERDIR}/appdata/barman/:/var/lib/barman
-  #     # The right side of this mount should be set to BARMAN_LOG_DIR.
-  #     - ${DOCKERDIR}/logs/barman:/var/log/barman
-  #     # Password file
-  #     # - ${DOCKERDIR}/barman/pgpass:/private/pgpass:ro
-
-  #   networks:
-  #       - tripbot-net
-  #   environment:
-  #     <<: *default-tz-puid-pgid
-  #     # DOCKER_HOST: tcp://socket-proxy:2375
-  #     BARMAN_CRON_SRC: /etc/cron.d
-  #     # BARMAN_LOG_DIR: /var/log/barman
-  #     # BARMAN_SSH_KEY_DIR: /private/ssh
-  #     # BARMAN_PGPASSFILE: /private/pgpass
-  #     BARMAN_CRON_SCHEDULE: "* * * * *"
-  #     # BARMAN_BACKUP_SCHEDULE: 0 4 * * * # Every day at 4 am
-  #     BARMAN_BACKUP_SCHEDULE: "0 * * * *" # Every hour
-  #     # BARMAN_LOG_LEVEL: INFO
-  #     DB_HOST: database
-  #     DB_PORT: 5432
-  #     DB_SUPERUSER: barman
-  #     DB_SUPERUSER_PASSWORD: ${BARMAN_PASSWORD}
-  #     DB_SUPERUSER_DATABASE: tripsit
-  #     DB_REPLICATION_USER: streaming_barman
-  #     DB_REPLICATION_PASSWORD: ${BARMAN_STREAMING_PASSWORD}
-  #     DB_SLOT_NAME: barman
-  #     DB_BACKUP_METHOD: postgres
-  #     GOOGLE_APPLICATION_CREDENTIALS: /etc/creds/gcloud.json
-
-  #   labels:
-  #     # - com.centurylinklabs.watchtower.enable=true
-  #     - traefik.enable=false
+  whoami-net:
+    name: whoami-net

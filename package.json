@@ -7,7 +7,8 @@
         "npm": "9.6.4"
     },
     "scripts": {
-        "start": "docker compose --profile all up -d --force-recreate --build",
+        "start": "docker compose up -d --force-recreate --build",
+        "start:apps": "docker compose --file docker-compose.apps.yml up -d --force-recreate --build",
         "## Admin ##": "",
         "logs-traefik": "docker container logs traefik -f -n 100",
         "logs-portainer": "docker container logs portainer -f -n 100",
@@ -23,8 +24,7 @@
         "refreshDb": "// Needs to be built"
     },
     "authors": [
-        "Moonbear <eric@tripsit.me>",
-        "SevenCats"
+        "Moonbear <eric@tripsit.me>"
     ],
     "license": "MIT",
     "dependencies": {

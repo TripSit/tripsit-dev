@@ -10,3 +10,4 @@ node_modules
 *.sqlite3
 *.key
 *.pub
+docker/appdata/*
