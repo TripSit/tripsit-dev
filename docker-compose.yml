@@ -70,6 +70,22 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
+  fail2ban:
+    <<: *common-keys-core
+    image: crazymax/fail2ban:latest
+    container_name: fail2ban
+    volumes:
+      - ${DOCKERDIR}/appdata/fail2ban/log:/var/log:ro
+      - ${DOCKERDIR}/appdata/fail2ban/data:/data
+    environment:
+      <<: *default-tz-puid-pgid
+    network_mode: host
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - traefik.enable=false
   portainer:
     <<: *common-keys-core
     image: portainer/portainer-ce:latest
@@ -89,6 +105,12 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=false
       - traefik.enable=true
+      - traefik.docker.network=portainer-net
+      - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
+      - traefik.http.routers.portainer-rtr.service=portainer-svc
+      - traefik.http.routers.portainer-rtr.middlewares=defaultDev@file
+      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
+      - traefik.http.routers.portainer-rtr.entrypoints=web
 
   traefik:
     <<: *common-keys-core
@@ -144,31 +166,67 @@ services:
     labels:
       # - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
-      - traefik.http.routers.traefik.service=api@internal
-      - traefik.http.routers.traefik.rule=Host(`traefik.${DNS_DOMAIN}`)
-      - traefik.http.routers.traefik.entrypoints=web
-      # - traefik.http.routers.traefik.tls.certresolver=letsencrypt
-      # - traefik.http.routers.traefik.tls.domains[0].main=${DNS_DOMAIN}
-      # - traefik.http.routers.traefik.tls.domains[0].sans=*.${DNS_DOMAIN}
-      # - traefik.http.routers.traefik.tls.domains[1].main=${OTHER_DOMAIN}
-      # - traefik.http.routers.traefik.tls.domains[1].sans=*.${OTHER_DOMAIN}
-      # - traefik.http.routers.traefik.middlewares=middlewares-traefik-strip@file,chain-no-auth@file
-  # fail2ban:
-  #   <<: *common-keys-core
-  #   image: crazymax/fail2ban:latest
-  #   container_name: fail2ban
-  #   volumes:
-  #     - ${DOCKERDIR}/appdata/fail2ban/log:/var/log:ro
-  #     - ${DOCKERDIR}/appdata/fail2ban/data:/data
-  #   environment:
-  #     <<: *default-tz-puid-pgid
-  #   network_mode: host
-  #   cap_add:
-  #   - NET_ADMIN
-  #   - NET_RAW
-  #   labels:
-  #     - com.centurylinklabs.watchtower.enable=true
-  #     - traefik.enable=false
+      - traefik.http.routers.traefik-rtr.service=api@internal
+      - traefik.http.routers.traefik-rtr.middlewares=stripprefix-traefik@file,basicAuthDev@file
+      - traefik.http.routers.traefik-rtr.rule=Host(`traefik.${DNS_DOMAIN}`)
+      - traefik.http.routers.traefik-rtr.entrypoints=web
+      # - traefik.http.routers.traefik-rtr.tls.certresolver=letsencrypt
+      # - traefik.http.routers.traefik-rtr.tls.domains[0].main=${DNS_DOMAIN}
+      # - traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.${DNS_DOMAIN}
+      # - traefik.http.routers.traefik-rtr.tls.domains[1].main=${OTHER_DOMAIN}
+      # - traefik.http.routers.traefik-rtr.tls.domains[1].sans=*.${OTHER_DOMAIN}
+    command:
+      # Global
+      - --global.checkNewVersion=true
+      - --global.sendAnonymousUsage=true
+      # Log info
+      - --log=true
+      # - --log.filePath=/var/log/traefik/traefik.log
+      - --log.level=DEBUG # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+      # Access logs
+      - --accesslog=true
+      # - --accesslog.filepath=/var/log/traefik/access.log
+      - --accessLog.bufferingSize=100 # Configuring a buffer of 100 lines
+      - --accessLog.filters.statusCodes=204-299,400-499,500-599
+      - --accesslog.fields.headers.names.Content-Type=keep
+      - --accesslog.fields.headers.names.Referer=keep
+      - --accesslog.fields.headers.names.User-Agent=keep
+      # Enable the Trafik dashboard
+      - --api=true
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --api.debug=true
+      # Tell Traefik to discover containers using the Docker API
+      - --providers.docker
+      - --providers.docker.exposedbydefault=false
+      # - --providers.docker.endpoint=unix://var/run/docker.sock # Use Docker Socket Proxy instead for improved security
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.network=traefik-net
+      - --providers.docker.swarmMode=false
+      - --providers.file.directory=/data/rules # Load dynamic configuration from one or more .toml or .yml files in a directory
+      - --providers.file.watch=true # Only works on top level files in the rules folder
+      # Set up an insecure listener that redirects all traffic to TLS
+      - --entrypoints.web.address=:80
+      # - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      # - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      # Set up the TLS configuration for our https listener
+      # - --entrypoints.websecure.address=:443
+      # - --entrypoints.websecure.http.tls=true
+      # - --entrypoints.websecure.http.tls.certResolver=letsencrypt
+      # - --entrypoints.websecure.http.tls.domains[0].main=${DNS_DOMAIN}
+      # - --entrypoints.websecure.http.tls.domains[0].sans=*.${DNS_DOMAIN}
+      # - --entrypoints.websecure.http.tls.domains[1].main=${OTHER_DOMAIN}
+      # - --entrypoints.websecure.http.tls.domains[1].sans=*.${OTHER_DOMAIN}
+      # - --entrypoints.websecure.http.tls.options=tls-opts@file
+      # - --entrypoints.websecure.forwardedHeaders.trustedIPs=$CLOUDFLARE_IPS,$LOCAL_IPS
+      # Set up LetsEncrypt
+      # - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory 
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+      # # - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
+      # - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers==1.1.1.1:53,1.0.0.1:53
+      # - --certificatesresolvers.letsencrypt.acme.dnschallenge.disablepropagationcheck=true
 
 ########################### NETWORKS
 networks:

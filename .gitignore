@@ -6,6 +6,7 @@
 node_modules
 .scannerwork/
 .VSCodeCounter
+.htpasswd
 *.db
 *.sqlite3
 *.key

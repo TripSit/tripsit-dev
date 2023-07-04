@@ -3,50 +3,26 @@
 
 http:
   services:
-    portainer:
-      loadBalancer:
-        servers: 
-          - url: http://10.201.7.3:9000
-        # servers:
-        #   port: 9000
-
-    # traefik:
-    #   loadBalancer:
-    #     server: "portainer:9000"
-
     # Error pages
     traefik-error-pages:
       loadBalancer:
         servers:
           - url: "https://tripsit.io/error-pages/"
 
-  routers:
-    portainer:
-      rule: Host(`portainer.localhost`)
-      service: portainer
-      entrypoints: web
-      # middlewares: default@file
-    traefik:
-      rule: Host(`traefik.localhost`)
-      service: api@internal
-      entrypoints: web
-      # middlewares: stripprefix-traefik@file,default@file
-      # tls:
-      #   options: intermediate@file
-      #   certresolver: letsencrypt
-      #   domains:
-      #     - main: "tripsit.io"
-      #       sans: "*.tripsit.io"
-      #     - main: "tripbot.info"
-      #       sans: "*.tripbot.info"
-      #     # - main: "${LEGACY_DOMAIN}"
-      #     #   sans: "*.${LEGACY_DOMAIN}"
-
   middlewares:
     # Recommended default middleware for most of the services
     # Use with traefik.http.routers.myRouter.middlewares: "default@file"
     # Equivalent of traefik.http.routers.myRouter.middlewares: "default-security-headers@file,error-pages@file,gzip@file"
     default:
+      chain:
+        middlewares:
+          - default-security-headers
+          - error-pages
+          - gzip
+          - ratelimit-100
+          - redirectscheme-https
+    
+    defaultDev: # No https
       chain:
         middlewares:
           - default-security-headers
@@ -63,13 +39,20 @@ http:
           - default
           - auth-basic
 
+    # All of the default stuff, plus a basic auth, but no https
+    # Use with traefik.http.routers.myRouter.middlewares: "basicAuthDev@file"
+    basicAuthDev:
+      chain:
+        middlewares:
+          - defaultDev
+          - auth-basic
+
     # A basic authentification middleware, to protect the Traefik dashboard to anyone except myself
     # Use with traefik.http.routers.myRouter.middlewares: "traefikAuth@file"
     auth-basic:
       basicAuth:
         usersFile: "/data/.htpasswd" # be sure to mount the volume through docker-compose.yml
         realm: "Traefik 2 Basic Auth"
-
 
     # Add automatically some security headers
     # Use with traefik.http.routers.myRouter.middlewares: "default-security-headers@file"
@@ -96,7 +79,7 @@ http:
         # referrerPolicy: "same-origin" # This is what it used to be, trying the above
         # sslHost: "{{env "DOMAINNAME_CLOUD_SERVER"}}"
         # sslForceHost: true                              # add sslHost to all of the services
-        sslRedirect: true                                 # Allow only https requests
+        # sslRedirect: true                                 # Allow only https requests
         stsIncludeSubdomains: true                        # Add includeSubdomains to the Strict-Transport-Security header
         stsPreload: true                                  # Add preload flag appended to the Strict-Transport-Security header
         stsSeconds: 63072000                              # Set the max-age of the Strict-Transport-Security header (63072000 = 2 years)
