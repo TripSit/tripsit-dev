@@ -70,8 +70,9 @@ providers:
     swarmmode: false                          # Activates the Swarm Mode (instead of standalone Docker).
     # swarmModeRefreshSeconds: 15             # Defines the polling interval (in seconds) in Swarm Mode.
     watch: true                               # Watch Docker Swarm events
+    # defaultRule: "Host(`{{ index .Labels \"com.docker.compose.service\"}}.localhost`)"
   file:
     # filename: "/etc/traefik/config.yml"     # Link to the dynamic configuration file
     directory: "/data/rules/"                 # Link to the dynamic configuration directory
     watch: true                               # Watch for modifications
-  providersThrottleDuration: 10               # Configuration reload frequency
+  # providersThrottleDuration: 10               # Configuration reload frequency

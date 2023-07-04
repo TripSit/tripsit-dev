@@ -2,6 +2,46 @@
 # See https://doc.traefik.io/traefik/getting-started/configuration-overview/#the-dynamic-configuration
 
 http:
+  services:
+    portainer:
+      loadBalancer:
+        servers: 
+          - url: http://10.201.7.3:9000
+        # servers:
+        #   port: 9000
+
+    # traefik:
+    #   loadBalancer:
+    #     server: "portainer:9000"
+
+    # Error pages
+    traefik-error-pages:
+      loadBalancer:
+        servers:
+          - url: "https://tripsit.io/error-pages/"
+
+  routers:
+    portainer:
+      rule: Host(`portainer.localhost`)
+      service: portainer
+      entrypoints: web
+      # middlewares: default@file
+    traefik:
+      rule: Host(`traefik.localhost`)
+      service: api@internal
+      entrypoints: web
+      # middlewares: stripprefix-traefik@file,default@file
+      # tls:
+      #   options: intermediate@file
+      #   certresolver: letsencrypt
+      #   domains:
+      #     - main: "tripsit.io"
+      #       sans: "*.tripsit.io"
+      #     - main: "tripbot.info"
+      #       sans: "*.tripbot.info"
+      #     # - main: "${LEGACY_DOMAIN}"
+      #     #   sans: "*.${LEGACY_DOMAIN}"
+
   middlewares:
     # Recommended default middleware for most of the services
     # Use with traefik.http.routers.myRouter.middlewares: "default@file"
@@ -13,7 +53,7 @@ http:
           - error-pages
           - gzip
           - ratelimit-100
-          - redirectscheme-https
+          # - redirectscheme-https
 
     # All of the default stuff, plus a basic auth
     # Use with traefik.http.routers.myRouter.middlewares: "basicAuth@file"
@@ -97,43 +137,10 @@ http:
 
     # Another https redirect to make sure it's https
     # Use with traefik.http.routers.myRouter.middlewares: "redirectscheme-https@file"
-    redirectscheme-https:
-      redirectScheme:
-        scheme: https
-        permanent: true
-
-  services:
-    # portainer:
-    #   loadBalancer:
-    #     server: "portainer:9000"
-
-    # traefik:
-    #   loadBalancer:
-    #     server: "portainer:9000"
-
-    # Error pages
-    traefik-error-pages:
-      loadBalancer:
-        servers:
-          - url: "https://tripsit.io/error-pages/"
-
-  routers:
-    traefik:
-      rule: Host(`traefik.${DNS_DOMAIN}`)
-      service: api@internal
-      # entrypoints: websecure
-      entrypoints: web
-      # middlewares: stripprefix-traefik@file,default@file
-      # tls:
-      #   options: intermediate@file
-      #   certresolver: letsencrypt
-      #   domains:
-      #     - main: "tripsit.io"
-      #       sans: "*.tripsit.io"
-      #     - main: "tripbot.info"
-      #       sans: "*.tripbot.info"
-      #     # - main: "${LEGACY_DOMAIN}"
-      #     #   sans: "*.${LEGACY_DOMAIN}"
+    # redirectscheme-https:
+    #   redirectScheme:
+    #     scheme: https
+    #     permanent: true
 
 # See https://doc.traefik.io/traefik/https/tls/
 tls:

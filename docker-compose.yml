@@ -77,7 +77,7 @@ services:
     command: -H tcp://socket-proxy:2375
     depends_on: 
       - docker-socket-proxy
-    # ports:
+    # ports: # Only use if you need to connect directly from IP
     #   - 9000:9000
     networks:
       socket-net:
@@ -86,17 +86,10 @@ services:
       - ${DOCKERDIR}/appdata/portainer/data/:/data
     environment:
       <<: *default-tz-puid-pgid
-      DOCKER_HOST: tcp://socket-proxy:2375
     labels:
-      - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.enable=false
       - traefik.enable=true
-      - traefik.docker.network=portainer-net
-      - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
-      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
-      - traefik.http.routers.portainer-rtr.service=portainer-svc
-      - traefik.http.routers.portainer-rtr.entrypoints=web
-      # - traefik.http.routers.portainer-rtr.tls=true
-      - traefik.http.routers.portainer-rtr.middlewares=chain-no-auth@file
+
   traefik:
     <<: *common-keys-core
     image: traefik:latest
@@ -160,22 +153,22 @@ services:
       # - traefik.http.routers.traefik.tls.domains[1].main=${OTHER_DOMAIN}
       # - traefik.http.routers.traefik.tls.domains[1].sans=*.${OTHER_DOMAIN}
       # - traefik.http.routers.traefik.middlewares=middlewares-traefik-strip@file,chain-no-auth@file
-  fail2ban:
-    <<: *common-keys-core
-    image: crazymax/fail2ban:latest
-    container_name: fail2ban
-    volumes:
-      - ${DOCKERDIR}/appdata/fail2ban/log:/var/log:ro
-      - ${DOCKERDIR}/appdata/fail2ban/data:/data
-    environment:
-      <<: *default-tz-puid-pgid
-    network_mode: host
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-      - traefik.enable=false
+  # fail2ban:
+  #   <<: *common-keys-core
+  #   image: crazymax/fail2ban:latest
+  #   container_name: fail2ban
+  #   volumes:
+  #     - ${DOCKERDIR}/appdata/fail2ban/log:/var/log:ro
+  #     - ${DOCKERDIR}/appdata/fail2ban/data:/data
+  #   environment:
+  #     <<: *default-tz-puid-pgid
+  #   network_mode: host
+  #   cap_add:
+  #   - NET_ADMIN
+  #   - NET_RAW
+  #   labels:
+  #     - com.centurylinklabs.watchtower.enable=true
+  #     - traefik.enable=false
 
 ########################### NETWORKS
 networks:
