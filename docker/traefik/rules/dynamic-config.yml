@@ -20,7 +20,7 @@ http:
           - error-pages
           - gzip
           - ratelimit-100
-          - redirectscheme-https
+          # - redirectscheme-https
     
     defaultDev: # No https
       chain:

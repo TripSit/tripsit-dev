@@ -70,22 +70,7 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=false
-  fail2ban:
-    <<: *common-keys-core
-    image: crazymax/fail2ban:latest
-    container_name: fail2ban
-    volumes:
-      - ${DOCKERDIR}/appdata/fail2ban/log:/var/log:ro
-      - ${DOCKERDIR}/appdata/fail2ban/data:/data
-    environment:
-      <<: *default-tz-puid-pgid
-    network_mode: host
-    cap_add:
-    - NET_ADMIN
-    - NET_RAW
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-      - traefik.enable=false
+  
   portainer:
     <<: *common-keys-core
     image: portainer/portainer-ce:latest
@@ -93,24 +78,34 @@ services:
     command: -H tcp://socket-proxy:2375
     depends_on: 
       - docker-socket-proxy
-    # ports: # Only use if you need to connect directly from IP
+    # ports:
     #   - 9000:9000
     networks:
       socket-net:
       portainer-net:
     volumes:
-      - ${DOCKERDIR}/appdata/portainer/data/:/data
+      # - ${DOCKERDIR}/appdata/portainer/data/:/data
+      - portainer-data:/data
     environment:
       <<: *default-tz-puid-pgid
+      DOCKER_HOST: tcp://socket-proxy:2375
     labels:
-      - com.centurylinklabs.watchtower.enable=false
+      - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
       - traefik.docker.network=portainer-net
       - traefik.http.services.portainer-svc.loadbalancer.server.port=9000
-      - traefik.http.routers.portainer-rtr.service=portainer-svc
-      - traefik.http.routers.portainer-rtr.middlewares=defaultDev@file
-      - traefik.http.routers.portainer-rtr.rule=Host(`portainer.${DNS_DOMAIN}`)
-      - traefik.http.routers.portainer-rtr.entrypoints=web
+
+      - traefik.http.routers.portainer-cloudflare.rule=Host(`portainer.${DNS_DOMAIN}`)
+      - traefik.http.routers.portainer-cloudflare.service=portainer-svc
+      # - traefik.http.routers.portainer-cloudflare.tls.certresolver=letsencrypt
+      - traefik.http.routers.portainer-cloudflare.middlewares=default@file
+      - traefik.http.routers.portainer-cloudflare.entrypoints=web
+      
+      # - traefik.http.routers.portainer-namecheap.rule=Host(`portainer.tripsit.me`)
+      # - traefik.http.routers.portainer-namecheap.tls.certresolver=letsencrypt-legacy
+      # - traefik.http.routers.portainer-namecheap.service=portainer-svc
+      # - traefik.http.routers.portainer-namecheap.middlewares=default@file
+      # - traefik.http.routers.portainer-namecheap.entrypoints=websecure
 
   traefik:
     <<: *common-keys-core
@@ -121,60 +116,45 @@ services:
       - DOMAINNAME_CLOUD_SERVER=${DNS_DOMAIN}
       # - CF_API_EMAIL=${CF_EMAIL}
       # - CF_API_KEY=${CF_API_KEY}
+      # - NAMECHEAP_API_USER=${NAMECHEAP_API_USER}
+      # - NAMECHEAP_API_KEY=${NAMECHEAP_API_KEY}
     ports:
       - 80:80
-      # - 443:443
+      - 443:443
     volumes:
-      - ${DOCKERDIR}/traefik/rules:/data/rules
-      - ${DOCKERDIR}/logs/traefik:/var/log/traefik
-      - ${LOCAL_MOUNT}/traefik/letsencrypt:/letsencrypt
-      - ${DOCKERDIR}/traefik/static:/etc/traefik
+      # - ${DOCKERDIR}/traefik/:/data
+      - traefik-data:/data
+      # - ${DOCKERDIR}/logs/traefik:/var/log/traefik
+      # - ${LOCAL_MOUNT}/traefik/letsencrypt:/letsencrypt
       # - /etc/traefik:/etc/traefik
-    #   - ${DOCKERDIR}/traefik/dynamic:/data/rules
-    #   - ${DOCKERDIR}/traefik/static:/etc/traefik
     networks:
-      dozzle-net:
-      duplicati-net:
-      database_frontend-net:
-      database_backend-net:
-      drone-net:
-      files-net:
-      gotify-net:
-      gitlab-net:
-      it-net:
-      kuma-net:
-      keycloak-net:
-      lounge-vip-net:
-      lounge-net:
-      mail-net:
-      matrix-net:
-      monica-net:
-      moodle-net:
-      netdata-net:
-      nginx-net:
-      oauth-net:
-      organizr-net:
-      portainer-net:
-      postgres-net:
-      privatebin-net:
-      speedtest-net:
-      socket-net:
-      trilium-net:
-      tripbot-net:
-      traefik-net:
-      whoami-net:
+      - database_pgadmin-net
+      - database_api-net
+      - portainer-net
+      - socket-net
+      - traefik-net
     labels:
-      # - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.enable=true
       - traefik.enable=true
-      - traefik.http.routers.traefik-rtr.service=api@internal
-      - traefik.http.routers.traefik-rtr.middlewares=stripprefix-traefik@file,basicAuthDev@file
-      - traefik.http.routers.traefik-rtr.rule=Host(`traefik.${DNS_DOMAIN}`)
-      - traefik.http.routers.traefik-rtr.entrypoints=web
-      # - traefik.http.routers.traefik-rtr.tls.certresolver=letsencrypt
-      # - traefik.http.routers.traefik-rtr.tls.domains[0].main=${DNS_DOMAIN}
-      # - traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.${DNS_DOMAIN}
-      # - traefik.http.routers.traefik-rtr.tls.domains[1].main=${OTHER_DOMAIN}
-      # - traefik.http.routers.traefik-rtr.tls.domains[1].sans=*.${OTHER_DOMAIN}
+      - traefik.docker.network=traefik-net
+
+      - traefik.http.routers.traefik-cloudflare.rule=Host(`traefik.${DNS_DOMAIN}`)
+      # - traefik.http.routers.traefik-cloudflare.tls.certresolver=letsencrypt
+      # - traefik.http.routers.traefik-cloudflare.tls.domains[0].main=${DNS_DOMAIN}
+      # - traefik.http.routers.traefik-cloudflare.tls.domains[0].sans=*.${DNS_DOMAIN}
+      # - traefik.http.routers.traefik-cloudflare.tls.domains[1].main=${OTHER_DOMAIN}
+      # - traefik.http.routers.traefik-cloudflare.tls.domains[1].sans=*.${OTHER_DOMAIN}
+      - traefik.http.routers.traefik-cloudflare.service=api@internal
+      - traefik.http.routers.traefik-cloudflare.middlewares=stripprefix-traefik@file,basicAuth@file
+      - traefik.http.routers.traefik-cloudflare.entrypoints=web
+      
+      # - traefik.http.routers.traefik-namecheap.rule=Host(`traefik.tripsit.me`)
+      # - traefik.http.routers.traefik-namecheap.tls.certresolver=letsencrypt-legacy
+      # - traefik.http.routers.traefik-namecheap.tls.domains[0].main=tripsit.me
+      # - traefik.http.routers.traefik-namecheap.tls.domains[0].sans=*.tripsit.me
+      # - traefik.http.routers.traefik-namecheap.service=api@internal
+      # - traefik.http.routers.traefik-namecheap.middlewares=stripprefix-traefik@file,basicAuth@file
+      # - traefik.http.routers.traefik-namecheap.entrypoints=websecure
     command:
       # Global
       - --global.checkNewVersion=true
@@ -209,100 +189,49 @@ services:
       - --entrypoints.web.address=:80
       # - --entrypoints.web.http.redirections.entrypoint.to=websecure
       # - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      # Set up the TLS configuration for our https listener
+      # # Set up the TLS configuration for our https listener
       # - --entrypoints.websecure.address=:443
-      # - --entrypoints.websecure.http.tls=true
-      # - --entrypoints.websecure.http.tls.certResolver=letsencrypt
       # - --entrypoints.websecure.http.tls.domains[0].main=${DNS_DOMAIN}
       # - --entrypoints.websecure.http.tls.domains[0].sans=*.${DNS_DOMAIN}
       # - --entrypoints.websecure.http.tls.domains[1].main=${OTHER_DOMAIN}
       # - --entrypoints.websecure.http.tls.domains[1].sans=*.${OTHER_DOMAIN}
-      # - --entrypoints.websecure.http.tls.options=tls-opts@file
+      # - --entrypoints.websecure.http.tls.domains[2].main=tripsit.me
+      # - --entrypoints.websecure.http.tls.domains[2].sans=*.tripsit.me
+      # - --entrypoints.websecure.http.tls.options=intermediate@file
       # - --entrypoints.websecure.forwardedHeaders.trustedIPs=$CLOUDFLARE_IPS,$LOCAL_IPS
-      # Set up LetsEncrypt
-      # - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory 
+
+      # # Set up LetsEncrypt for Cloudflare
+      # # - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory 
       # - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
       # - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
-      # # - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
+      # - --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
       # - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       # - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers==1.1.1.1:53,1.0.0.1:53
       # - --certificatesresolvers.letsencrypt.acme.dnschallenge.disablepropagationcheck=true
 
+      # # Set up LetsEncrypt for Namecheap, our legacy provider
+      # # - --certificatesResolvers.letsencrypt-legacy.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory 
+      # - --certificatesresolvers.letsencrypt-legacy.acme.dnschallenge=true
+      # - --certificatesresolvers.letsencrypt-legacy.acme.dnschallenge.provider=namecheap
+      # - --certificatesresolvers.letsencrypt-legacy.acme.email=${LETSENCRYPT_EMAIL}
+      # - --certificatesresolvers.letsencrypt-legacy.acme.storage=/letsencrypt/acme-legacy.json
+      # # - --certificatesresolvers.letsencrypt-legacy.acme.dnschallenge.disablepropagationcheck=true
+
+volumes:
+  portainer-data:
+    name: portainer-data
+  traefik-data:
+    name: traefik-data
+
 ########################### NETWORKS
 networks:
-  codimd-net:
-    name: codimd-net
-  database-net:
-    name: database-net
-  database_frontend-net:
-    name: database_frontend-net
-  database_backend-net:
-    name: database_backend-net
-  dozzle-net:
-    name: dozzle-net
-  duplicati-net:
-    name: duplicati-net
-  drone-net:
-    name: drone-net
-  drone_private-net:
-    name: drone_private-net
-  files-net:
-    name: files-net
-  gotify-net:
-    name: gotify-net
-  gitlab-net:
-    name: gitlab-net
-  gitlab-net-private:
-    name: gitlab-net-private
-  it-net:
-    name: it-net
-  keycloak-net:
-    name: keycloak-net
-  keycloak_db-net:
-    name: keycloak_db-net
-  kuma-net:
-    name: kuma-net
-  lounge-vip-net:
-    name: lounge-vip-net
-  lounge-net:
-    name: lounge-net
-  matrix-net:
-    name: matrix-net
-  mail-net:
-    name: mail-net
-  monica-net:
-    name: monica-net
-  moodle-net:
-    name: moodle-net
-  moodle_db-net:
-    name: moodle_db-net
-  netdata-net:
-    name: netdata-net
-  nginx-net:
-    name: nginx-net
-  nginx-private-net:
-    name: nginx-private-net
-  oauth-net:
-    name: oauth-net
-  organizr-net:
-    name: organizr-net
+  database_api-net:
+    name: database_api-net
+  database_pgadmin-net:
+    name: database_pgadmin-net
   portainer-net:
     name: portainer-net
-  postgres-net:
-    name: postgres-net
-  postgres-private-net:
-    name: postgres-private-net
-  privatebin-net:
-    name: privatebin-net
-  speedtest-net:
-    name: speedtest-net
   socket-net:
     name: socket-net
   traefik-net:
     name: traefik-net
-  tripbot-net:
-    name: tripbot-net
-  trilium-net:
-    name: trilium-net
-  whoami-net:
-    name: whoami-net

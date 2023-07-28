@@ -7,21 +7,13 @@
         "npm": "9.6.4"
     },
     "scripts": {
-        "start": "docker compose up -d --force-recreate --build",
-        "start:apps": "docker compose --file docker-compose.apps.yml up -d --force-recreate --build",
-        "## Admin ##": "",
+        "start:core": "docker compose --project-name tripsit-dev up -d --force-recreate --build",
+        "start:apps": "docker compose --project-name tripsit-dev-apps --file docker-compose.apps.yml up keycloak -d --force-recreate --build",
+        "## DEV ##": "",
         "logs-traefik": "docker container logs traefik -f -n 100",
         "logs-portainer": "docker container logs portainer -f -n 100",
-        "logs-tripbot_website": "docker container logs tripbot_website -f -n 100",
-        "## Dev ##": "",
-        "bootstrap": "docker compose --profile core up -d --force-recreate --build --remove-orphans", 
-        "up": "docker compose --profile apps up -d --force-recreate --build --remove-orphans",
-        "lint": "eslint --fix --ext .ts,.js .",
-        "test": "npm --prefix 'repos/tripbot' run test",
-        "down": "// This needs to remove volumes and networks",
-        "clean": "// This could be better: this is down + up",
-        "backupDb": "// Find a better backup process",
-        "refreshDb": "// Needs to be built"
+        "logs-keycloak": "docker container logs keycloak -f",
+        "restart_keycloak": "docker container stop keycloak keycloak_db && docker container rm keycloak keycloak_db && docker compose --project-name tripsit-dev-apps --file docker-compose.apps.yml up keycloak -d --force-recreate --build"
     },
     "authors": [
         "Moonbear <eric@tripsit.me>"
